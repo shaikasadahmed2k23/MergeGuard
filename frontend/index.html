@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MergeGuard — Autonomous Code Review</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0D1117;
+      --surface:   #161B22;
+      --border:    #21262D;
+      --cyan:      #00D4FF;
+      --green:     #00C853;
+      --amber:     #FFB300;
+      --red:       #FF3D57;
+      --text:      #E6EDF3;
+      --muted:     #8B949E;
+      --mono:      'JetBrains Mono', monospace;
+      --sans:      'Inter', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+    }
+
+    /* ── NAV ── */
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 18px 32px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 100;
+    }
+    .nav-logo {
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--cyan);
+      letter-spacing: -0.5px;
+    }
+    .nav-logo span { color: var(--text); }
+    .nav-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      background: rgba(0,212,255,0.1);
+      color: var(--cyan);
+      border: 1px solid rgba(0,212,255,0.3);
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+    .nav-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── STATS ROW ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .stat-card:hover { border-color: var(--cyan); }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    .stat-card.cyan::before  { background: var(--cyan); }
+    .stat-card.green::before { background: var(--green); }
+    .stat-card.amber::before { background: var(--amber); }
+    .stat-card.red::before   { background: var(--red); }
+    .stat-card.purple::before { background: #A78BFA; }
+
+    .stat-label {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 10px;
+    }
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .stat-card.cyan .stat-value  { color: var(--cyan); }
+    .stat-card.green .stat-value { color: var(--green); }
+    .stat-card.amber .stat-value { color: var(--amber); }
+    .stat-card.red .stat-value   { color: var(--red); }
+    .stat-card.purple .stat-value { color: #A78BFA; }
+
+    /* ── SECTION HEADER ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .refresh-btn {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--cyan);
+      background: none;
+      border: 1px solid rgba(0,212,255,0.3);
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .refresh-btn:hover { background: rgba(0,212,255,0.1); }
+
+    /* ── PR LIST ── */
+    .pr-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .pr-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 16px;
+    }
+    .pr-card:hover {
+      border-color: var(--cyan);
+      background: #1C2128;
+      transform: translateX(2px);
+    }
+
+    /* Decision icon */
+    .pr-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .pr-icon.approved { background: rgba(0,200,83,0.15); }
+    .pr-icon.warned   { background: rgba(255,179,0,0.15); }
+    .pr-icon.rejected { background: rgba(255,61,87,0.15); }
+
+    .pr-info { min-width: 0; }
+    .pr-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+    .pr-meta {
+      display: flex;
+      gap: 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .pr-meta span { display: flex; align-items: center; gap: 4px; }
+
+    /* Score ring */
+    .score-ring {
+      width: 52px; height: 52px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .score-ring svg { transform: rotate(-90deg); }
+    .score-ring-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    /* Decision badge */
+    .decision-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .decision-badge.approved { background: rgba(0,200,83,0.15);  color: var(--green); border: 1px solid rgba(0,200,83,0.3); }
+    .decision-badge.warned   { background: rgba(255,179,0,0.15); color: var(--amber); border: 1px solid rgba(255,179,0,0.3); }
+    .decision-badge.rejected { background: rgba(255,61,87,0.15); color: var(--red);   border: 1px solid rgba(255,61,87,0.3); }
+
+    /* ── DETAIL MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 700px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      padding: 24px 24px 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .modal-subtitle {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .modal-close {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .modal-close:hover { border-color: var(--red); color: var(--red); }
+    .modal-body { padding: 20px 24px 24px; }
+
+    /* Score hero */
+    .score-hero {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .score-hero-ring { width: 80px; height: 80px; position: relative; flex-shrink: 0; }
+    .score-hero-ring svg { transform: rotate(-90deg); }
+    .score-hero-ring-text {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-family: var(--mono);
+    }
+    .score-hero-ring-text .big { font-size: 22px; font-weight: 700; }
+    .score-hero-ring-text .small { font-size: 10px; color: var(--muted); }
+    .score-hero-info { flex: 1; }
+    .score-hero-decision {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .score-hero-meta {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    /* Agent cards */
+    .agents-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 520px) { .agents-grid { grid-template-columns: 1fr; } }
+
+    .agent-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .agent-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .agent-name {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .agent-score {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .agent-summary {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .agent-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .agent-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.8s ease;
+    }
+
+    /* PR link */
+    .pr-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--cyan);
+      text-decoration: none;
+      border: 1px solid rgba(0,212,255,0.3);
+      padding: 7px 14px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .pr-link:hover { background: rgba(0,212,255,0.1); }
+
+    /* Empty + loading */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .empty .icon { font-size: 40px; margin-bottom: 12px; }
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-family: var(--mono); font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Merge<span>Guard</span></div>
+  <div class="nav-badge">AUTONOMOUS</div>
+  <div class="nav-status">
+    <div class="status-dot"></div>
+    <span id="status-text">connecting...</span>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- Stats -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card cyan"><div class="stat-label">Total PRs</div><div class="stat-value" id="stat-total">—</div></div>
+    <div class="stat-card green"><div class="stat-label">Approved</div><div class="stat-value" id="stat-approved">—</div></div>
+    <div class="stat-card amber"><div class="stat-label">Warned</div><div class="stat-value" id="stat-warned">—</div></div>
+    <div class="stat-card red"><div class="stat-label">Rejected</div><div class="stat-value" id="stat-rejected">—</div></div>
+    <div class="stat-card purple"><div class="stat-label">Avg Score</div><div class="stat-value" id="stat-avg">—</div></div>
+  </div>
+
+  <!-- PR List -->
+  <div class="section-header">
+    <div class="section-title">Pull Requests</div>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  </div>
+  <div class="pr-list" id="pr-list">
+    <div class="loading">Loading reviews...</div>
+  </div>
+
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">—</div>
+        <div class="modal-subtitle" id="modal-subtitle">—</div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+
+function scoreColor(s) {
+  if (s >= 85) return 'var(--green)';
+  if (s >= 60) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function scoreRingSVG(score, size, stroke, color) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const fill = (score / 100) * circ;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${stroke}"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+      stroke-dasharray="${fill} ${circ}" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function decisionIcon(d) {
+  if (d === 'approved') return '✅';
+  if (d === 'warned')   return '🚩';
+  return '❌';
+}
+
+function blastRadiusBadge(level) {
+  if (!level) return '';
+  const colors = { high: 'var(--red)', medium: 'var(--amber)', low: 'var(--green)' };
+  const icons = { high: '🔴', medium: '🟡', low: '🟢' };
+  return `<span style="font-family:var(--mono);font-size:10px;color:${colors[level]};border:1px solid ${colors[level]}33;padding:2px 6px;border-radius:10px;white-space:nowrap;">${icons[level]} ${level.toUpperCase()}</span>`;
+}
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso);
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h/24)}d ago`;
+}
+
+async function loadData() {
+  try {
+    const [statsRes, reviewsRes] = await Promise.all([
+      fetch(`${API}/api/stats`),
+      fetch(`${API}/api/reviews`)
+    ]);
+    const stats = await statsRes.json();
+    const { reviews } = await reviewsRes.json();
+
+    // Stats
+    document.getElementById('stat-total').textContent    = stats.total_prs ?? 0;
+    document.getElementById('stat-approved').textContent = stats.approved ?? 0;
+    document.getElementById('stat-warned').textContent   = stats.warned ?? 0;
+    document.getElementById('stat-rejected').textContent = stats.rejected ?? 0;
+    document.getElementById('stat-avg').textContent      = stats.avg_trust_score ?? 0;
+    document.getElementById('status-text').textContent   = 'agent active';
+
+    // PR list
+    const list = document.getElementById('pr-list');
+    if (!reviews.length) {
+      list.innerHTML = `<div class="empty"><div class="icon">🤖</div>No PRs reviewed yet.<br>Open a pull request to trigger MergeGuard.</div>`;
+      return;
+    }
+
+    list.innerHTML = reviews.map(r => {
+      const color = scoreColor(r.trust_score);
+      const d = r.decision;
+      return `
+        <div class="pr-card" onclick="openModal(${JSON.stringify(r).replace(/"/g, '&quot;')})">
+          <div class="pr-icon ${d}">${decisionIcon(d)}</div>
+          <div class="pr-info">
+            <div class="pr-title">${r.pr_title}</div>
+            <div class="pr-meta">
+              <span>⎇ ${r.repo}</span>
+              <span>👤 ${r.pr_author}</span>
+              <span>🕐 ${timeAgo(r.created_at)}</span>
+              ${r.blast_radius_level ? `<span>${blastRadiusBadge(r.blast_radius_level)}</span>` : ''}
+            </div>
+          </div>
+          <div class="score-ring">
+            ${scoreRingSVG(r.trust_score, 52, 4, color)}
+            <div class="score-ring-text" style="color:${color}">${r.trust_score}</div>
+          </div>
+          <div class="decision-badge ${d}">${d}</div>
+        </div>`;
+    }).join('');
+
+  } catch(e) {
+    document.getElementById('pr-list').innerHTML =
+      `<div class="empty"><div class="icon">⚠️</div>Cannot connect to MergeGuard server.<br>Make sure the backend is running.</div>`;
+    document.getElementById('status-text').textContent = 'offline';
+  }
+}
+
+function agentBar(score) {
+  const color = scoreColor(score);
+  return `<div class="agent-bar"><div class="agent-bar-fill" style="width:${score}%;background:${color}"></div></div>`;
+}
+
+function openModal(r) {
+  document.getElementById('modal-title').textContent   = r.pr_title;
+  document.getElementById('modal-subtitle').textContent = `#${r.pr_number} · ${r.repo} · by ${r.pr_author}`;
+
+  const color = scoreColor(r.trust_score);
+  const fr = r.full_results || {};
+
+  const agents = [
+    { name: 'Security',  score: r.security_score, summary: fr.security?.summary },
+    { name: 'Intent',    score: r.intent_score,   summary: fr.intent?.summary },
+    { name: 'Diff',      score: r.diff_score,     summary: fr.diff?.summary },
+    { name: 'Impact',    score: r.impact_score,   summary: fr.impact?.summary },
+    { name: 'Context',   score: r.context_score,  summary: fr.context?.summary },
+  ];
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="score-hero">
+      <div class="score-hero-ring">
+        ${scoreRingSVG(r.trust_score, 80, 6, color)}
+        <div class="score-hero-ring-text">
+          <span class="big" style="color:${color}">${r.trust_score}</span>
+          <span class="small">/ 100</span>
+        </div>
+      </div>
+      <div class="score-hero-info">
+        <div class="score-hero-decision">
+          ${decisionIcon(r.decision)} ${r.decision.toUpperCase()}
+        </div>
+        <div class="score-hero-meta">
+          Security: ${r.security_severity?.toUpperCase() || 'N/A'}<br>
+          Risk: ${r.risk_level?.toUpperCase() || 'N/A'}<br>
+          Intent Match: ${r.intent_matches ? '✅ Yes' : '❌ No'}
+        </div>
+      </div>
+    </div>
+
+    ${r.blast_radius_level ? `
+    <div class="agent-card" style="margin-bottom:16px;border-left:3px solid ${r.blast_radius_level === 'high' ? 'var(--red)' : r.blast_radius_level === 'medium' ? 'var(--amber)' : 'var(--green)'}">
+      <div class="agent-header">
+        <div class="agent-name">Blast Radius</div>
+        <div class="agent-score" style="color:${r.blast_radius_level === 'high' ? 'var(--red)' : r.blast_radius_level === 'medium' ? 'var(--amber)' : 'var(--green)'}">${r.blast_radius_level.toUpperCase()}</div>
+      </div>
+      <div class="agent-summary">
+        ${(r.blast_radius_reasons || []).map(reason => `• ${reason}`).join('<br>')}
+      </div>
+    </div>` : ''}
+
+    ${r.developer_trust_level ? `
+    <div class="agent-card" style="margin-bottom:16px;border-left:3px solid #A78BFA">
+      <div class="agent-header">
+        <div class="agent-name">Developer Trust</div>
+        <div class="agent-score" style="color:#A78BFA">${r.developer_trust_level.toUpperCase().replace('_', ' ')}</div>
+      </div>
+      <div class="agent-summary">${r.developer_trust_note || ''}</div>
+    </div>` : ''}
+
+    <div class="agents-grid">
+      ${agents.map(a => `
+        <div class="agent-card">
+          <div class="agent-header">
+            <div class="agent-name">${a.name} Agent</div>
+            <div class="agent-score" style="color:${scoreColor(a.score)}">${a.score}/100</div>
+          </div>
+          <div class="agent-summary">${a.summary || 'No summary'}</div>
+          ${agentBar(a.score)}
+        </div>
+      `).join('')}
+    </div>
+
+    <a class="pr-link" href="${r.pr_url}" target="_blank">
+      ↗ View on GitHub
+    </a>`;
+
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e.target.id === 'modal') document.getElementById('modal').classList.remove('open');
+}
+
+// Load on start, refresh every 30s
+loadData();
+setInterval(loadData, 30000);
+</script>
+</body>
+</html>
