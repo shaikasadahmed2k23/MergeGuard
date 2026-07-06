@@ -371,7 +371,7 @@ In your repository: **Settings → Webhooks → Add webhook**
 
 ### 7. Open the dashboard
 
-Open `frontend/index.html` directly in a browser. It connects to `http://localhost:8000` by default — update the `API` constant in the file if your backend runs elsewhere.
+Open `frontend/index.html` directly in a browser. It connects to `https://mergeguard-sl7x.onrender.com` by default — update the `API` constant in the file if your backend runs elsewhere.
 
 ---
 
