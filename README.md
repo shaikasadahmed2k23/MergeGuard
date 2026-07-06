@@ -1,8 +1,25 @@
-Bismillah! Pehle skill check karta hoon markdown ke liye, phir likhta hoon — **depth ke saath, har cheez cover karte hue.**
+<div align="center">
+
+# 🛡️ MergeGuard
+
+### Autonomous Multi-Agent Code Review powered by Google ADK + Gemini
+
+[![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.138-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Google ADK](https://img.shields.io/badge/Google-ADK-blue?logo=google)]
+[![Gemini](https://img.shields.io/badge/Gemini-2.5%20Flash-4285F4?logo=google)]
+[![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?logo=supabase)]
+[![Render](https://img.shields.io/badge/Backend-Render-46E3B7?logo=render)]
+[![Vercel](https://img.shields.io/badge/Frontend-Vercel-black?logo=vercel)]
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+🌐 **Live Demo:** https://merge-guard-five.vercel.app/demo.html
+
+🚀 **Backend API:** https://mergeguard-sl7x.onrender.com
+
+</div>
 
 ---
-
-```markdown
 # MergeGuard
 
 > Autonomous Multi-Agent Code Review System — built on Google ADK + Gemini
@@ -90,44 +107,49 @@ Real developer intent often lives outside the PR description — in Slack thread
 
 ## System Architecture
 
-```
-GitHub PR Event
-       │
-       ▼
-  Webhook (FastAPI) ── signature verified (HMAC)
-       │
-       ▼
-  Diff fetched from GitHub API
-       │
-       ├──────────────► Blast Radius Calculator (deterministic)
-       │
-       ├──────────────► Developer Trust Profile (from history)
-       │
-       ▼
-  ADK ParallelAgent
-       │
-   ┌───┼───┬───┬───┐
-   ▼   ▼   ▼   ▼   ▼
- Security Intent Diff Impact Context   (all run concurrently via Gemini)
-   │   │   │   │   │
-   └───┴───┴───┴───┘
-       │
-       ▼
-  Trust Scorer (weighted, deterministic Python)
-       │
-       ▼
-  Decision Engine
-       │
-   ┌───┼─────────┬──────────────┐
-   ▼   ▼         ▼              ▼
-Approve Reject  Warn      Human Review Required
-   │   │         │              │
-   └───┴─────────┴──────────────┘
-       │
-       ├──► GitHub comment posted (full breakdown)
-       ├──► Merge / close PR via GitHub API (if applicable)
-       ├──► Discord notification (if human review needed)
-       └──► Saved to Supabase → visible on live dashboard
+## System Architecture
+
+```text
+                  GitHub Pull Request
+                           │
+                           ▼
+                GitHub Webhook (FastAPI)
+                           │
+                           ▼
+                 Webhook Authentication
+                           │
+                           ▼
+               GitHub Diff & Metadata Fetch
+                           │
+          ┌────────────────┴────────────────┐
+          │                                 │
+          ▼                                 ▼
+ Blast Radius Analysis           Developer Trust Profile
+          │                                 │
+          └────────────────┬────────────────┘
+                           ▼
+                 Google ADK Parallel Agent
+     ┌──────────┬──────────┬──────────┬──────────┬──────────┐
+     ▼          ▼          ▼          ▼          ▼
+ Security    Intent      Diff      Impact    Context
+   Agent      Agent      Agent      Agent      Agent
+     └──────────┴──────────┴──────────┴──────────┘
+                           │
+                           ▼
+                 Trust Score Calculation
+                           │
+                           ▼
+                   Decision Engine
+      ┌────────────┬────────────┬────────────┐
+      ▼            ▼            ▼
+ Auto Merge     Human Review    Reject
+      │            │             │
+      └────────────┼─────────────┘
+                   ▼
+        GitHub Comment + Discord Alert
+                   │
+                   ▼
+          Supabase + Dashboard
 ```
 
 A key design decision: **scoring and risk classification are deterministic Python, not LLM calls.** The five analysis agents use Gemini because they require genuine reasoning (does this code do what it claims? is this a security risk?). But combining scores into a final number, or checking if a diff touches sensitive keywords, doesn't need an LLM — it needs to be fast, predictable, and explainable. We only use the model where understanding is actually required.
@@ -241,44 +263,37 @@ This solves a real adoption problem: reviewers don't live in GitHub notification
 
 ## Project Structure
 
-```
-mergeguard/
-├── backend/
-│   ├── main.py                    # FastAPI entry point, API routes
-│   ├── config.py                  # Environment variable loading
-│   │
-│   ├── mergeguard_agent/          # ADK agent definitions
-│   │   ├── agent.py               # ParallelAgent assembly (root_agent)
-│   │   ├── sub_agents.py          # 5 agent definitions + Pydantic schemas
-│   │   ├── scorer.py              # Trust score calculation
-│   │   └── runner_service.py      # ADK Runner wrapper — analyze_pr()
-│   │
-│   ├── webhook/
-│   │   └── github.py              # GitHub webhook receiver
-│   │
-│   ├── middleware/
-│   │   └── auth.py                # HMAC webhook signature verification
-│   │
-│   ├── core/
-│   │   ├── orchestrator.py        # Pipeline coordination
-│   │   ├── blast_radius.py        # Deterministic risk classifier
-│   │   ├── trust_profile.py       # Developer history analysis
-│   │   └── decision.py            # Final decision logic + comment building
-│   │
-│   ├── github/
-│   │   └── api.py                 # GitHub API — comment, merge, close
-│   │
-│   ├── database/
-│   │   └── models.py              # Supabase read/write
-│   │
-│   ├── notifications/
-│   │   └── discord_notifier.py    # Discord webhook integration
-│   │
-│   └── logs/
-│       └── logger.py              # Structured logging
+## Project Architecture
+
+```text
+MergeGuard
 │
-└── frontend/
-    └── index.html                 # Live dashboard (stats, PR history, detail modal)
+├── backend
+│   ├── agents
+│   ├── api
+│   ├── core
+│   ├── database
+│   ├── github
+│   ├── logs
+│   ├── mergeguard_agent
+│   ├── middleware
+│   ├── notifications
+│   ├── webhook
+│   ├── config.py
+│   ├── main.py
+│   └── requirements.txt
+│
+├── frontend
+│   ├── index.html
+│   ├── demo.html
+│   └── src
+│       ├── components
+│       └── pages
+│
+├── docker
+├── docker-compose.yml
+├── README.md
+└── .env.example
 ```
 
 ---
