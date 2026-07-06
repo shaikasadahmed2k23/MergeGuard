@@ -1,4 +1,5 @@
 import json
+import time
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 from .agent import root_agent
@@ -24,7 +25,7 @@ Diff:
 {diff[:4000]}"""
 
     user_id = "mergeguard_system"
-    session_id = f"pr_{pr_data['repo'].replace('/', '_')}_{pr_data['pr_number']}"
+    session_id = f"pr_{pr_data['repo'].replace('/', '_')}_{pr_data['pr_number']}_{int(time.time())}"
 
     # Session banao
     await runner.session_service.create_session(

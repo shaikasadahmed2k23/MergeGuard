@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from webhook.github import router as webhook_router
 from logs.logger import get_logger
+from api.demo import router as demo_router
 
 logger = get_logger("main")
 
@@ -10,6 +11,8 @@ app = FastAPI(
     description="Autonomous Semantic Code Review Agent",
     version="1.0.0"
 )
+
+app.include_router(demo_router, prefix="/api", tags=["Demo"])
 
 # CORS - Frontend se baat karne ke liye
 app.add_middleware(

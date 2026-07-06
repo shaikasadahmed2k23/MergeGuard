@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MergeGuard — Live Demo</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0D1117;
+      --surface:  #161B22;
+      --surface2: #1C2128;
+      --border:   #21262D;
+      --cyan:     #00D4FF;
+      --green:    #00C853;
+      --amber:    #FFB300;
+      --red:      #FF3D57;
+      --text:     #E6EDF3;
+      --muted:    #8B949E;
+      --mono:     'JetBrains Mono', monospace;
+      --sans:     'Inter', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+    }
+
+    /* NAV */
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 32px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 100;
+    }
+    .nav-logo { font-family: var(--mono); font-weight: 700; font-size: 18px; color: var(--cyan); }
+    .nav-logo span { color: var(--text); }
+    .nav-badge { font-family: var(--mono); font-size: 10px; background: rgba(0,212,255,0.1); color: var(--cyan); border: 1px solid rgba(0,212,255,0.3); padding: 2px 8px; border-radius: 20px; }
+    .nav-links { margin-left: auto; display: flex; gap: 20px; }
+    .nav-links a { font-family: var(--mono); font-size: 12px; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--cyan); }
+
+    /* HERO */
+    .hero {
+      text-align: center;
+      padding: 64px 24px 48px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .hero-eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--cyan);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 600;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .hero h1 em { font-style: normal; color: var(--cyan); }
+    .hero p {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 32px;
+    }
+    .hero-stats {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .hero-stat { text-align: center; }
+    .hero-stat .num { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--cyan); }
+    .hero-stat .label { font-size: 11px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
+
+    /* SECTION */
+    .container { max-width: 1000px; margin: 0 auto; padding: 0 24px 80px; }
+    .section-label { font-family: var(--mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 20px; }
+
+    /* SCENARIO CARDS */
+    .scenarios { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 40px; }
+
+    .scenario-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .scenario-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .scenario-card.low::before   { background: var(--green); }
+    .scenario-card.medium::before { background: var(--amber); }
+    .scenario-card.high::before  { background: var(--red); }
+
+    .scenario-card:hover { transform: translateY(-2px); }
+    .scenario-card.low:hover    { border-color: var(--green); box-shadow: 0 0 20px rgba(0,200,83,0.1); }
+    .scenario-card.medium:hover { border-color: var(--amber); box-shadow: 0 0 20px rgba(255,179,0,0.1); }
+    .scenario-card.high:hover   { border-color: var(--red); box-shadow: 0 0 20px rgba(255,61,87,0.1); }
+    .scenario-card.selected { transform: translateY(-2px); }
+    .scenario-card.low.selected    { border-color: var(--green); box-shadow: 0 0 20px rgba(0,200,83,0.15); }
+    .scenario-card.medium.selected { border-color: var(--amber); box-shadow: 0 0 20px rgba(255,179,0,0.15); }
+    .scenario-card.high.selected   { border-color: var(--red); box-shadow: 0 0 20px rgba(255,61,87,0.15); }
+
+    .scenario-risk {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+    }
+    .scenario-card.low    .scenario-risk { background: rgba(0,200,83,0.15);  color: var(--green); border: 1px solid rgba(0,200,83,0.3); }
+    .scenario-card.medium .scenario-risk { background: rgba(255,179,0,0.15); color: var(--amber); border: 1px solid rgba(255,179,0,0.3); }
+    .scenario-card.high   .scenario-risk { background: rgba(255,61,87,0.15); color: var(--red);   border: 1px solid rgba(255,61,87,0.3); }
+
+    .scenario-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .scenario-desc  { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+
+    .scenario-meta { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .scenario-meta-item { display: flex; gap: 8px; font-family: var(--mono); font-size: 11px; }
+    .scenario-meta-item .key { color: var(--muted); min-width: 100px; }
+    .scenario-meta-item .val { color: var(--text); }
+
+    .scenario-expected {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .scenario-expected strong { display: block; margin-bottom: 4px; color: var(--text); }
+
+    .send-btn {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+    }
+    .scenario-card.low    .send-btn { background: rgba(0,200,83,0.15);  color: var(--green); border: 1px solid rgba(0,200,83,0.4); }
+    .scenario-card.medium .send-btn { background: rgba(255,179,0,0.15); color: var(--amber); border: 1px solid rgba(255,179,0,0.4); }
+    .scenario-card.high   .send-btn { background: rgba(255,61,87,0.15); color: var(--red);   border: 1px solid rgba(255,61,87,0.4); }
+    .send-btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* TERMINAL */
+    .terminal-wrapper {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .terminal-dot.red    { background: #FF5F57; }
+    .terminal-dot.amber  { background: #FFBD2E; }
+    .terminal-dot.green  { background: #28CA42; }
+    .terminal-title { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 4px; }
+    .terminal-status { margin-left: auto; display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; }
+    .terminal-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+    #terminal-body {
+      padding: 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.8;
+      min-height: 280px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    #terminal-body:empty::before {
+      content: '# Select a scenario above and click "Send PR" to watch MergeGuard analyze it live...';
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .log-line { display: block; margin-bottom: 2px; }
+    .log-info    { color: var(--cyan); }
+    .log-warn    { color: var(--amber); }
+    .log-error   { color: var(--red); }
+    .log-success { color: var(--green); }
+    .log-dim     { color: var(--muted); }
+    .log-agent   { color: #A78BFA; }
+
+    /* RESULT CARD */
+    #result-section { display: none; }
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .result-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .result-decision { font-size: 18px; font-weight: 600; }
+    .result-score-ring { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+    .result-score-ring svg { transform: rotate(-90deg); }
+    .result-score-ring-text {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-family: var(--mono);
+    }
+    .result-score-ring-text .big { font-size: 18px; font-weight: 700; }
+    .result-score-ring-text .small { font-size: 9px; color: var(--muted); }
+
+    .result-agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; padding: 20px 24px; }
+    .result-agent {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .result-agent-name { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+    .result-agent-score { font-family: var(--mono); font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .result-agent-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .result-agent-bar-fill { height: 100%; border-radius: 2px; }
+
+    .result-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .result-footer-text { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+    .result-github-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--cyan);
+      text-decoration: none;
+      border: 1px solid rgba(0,212,255,0.3);
+      padding: 6px 14px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .result-github-link:hover { background: rgba(0,212,255,0.1); }
+
+    /* HOW IT WORKS */
+    .how-section { margin-top: 60px; }
+    .how-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; }
+    .how-step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+    }
+    .how-step-num { font-family: var(--mono); font-size: 11px; color: var(--cyan); margin-bottom: 8px; }
+    .how-step-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .how-step-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+    /* SCROLL */
+    #terminal-body { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Merge<span>Guard</span></div>
+  <div class="nav-badge">LIVE DEMO</div>
+  <div class="nav-links">
+    <a href="index.html">Dashboard →</a>
+    <a href="https://github.com/shaikasadahmed2k23/MergeGaurd" target="_blank">GitHub →</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">Interactive Demo</div>
+  <h1>Watch MergeGuard<br><em>think in real time</em></h1>
+  <p>Pick one of three real-world PR scenarios below. MergeGuard will analyze it using 5 parallel AI agents, calculate a trust score, and make an autonomous merge decision — all in under 20 seconds.</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="num">5</div><div class="label">Parallel Agents</div></div>
+    <div class="hero-stat"><div class="num">4</div><div class="label">Trust Layers</div></div>
+    <div class="hero-stat"><div class="num">13+</div><div class="label">Real PRs Tested</div></div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:32px;">
+    <div class="section-label" style="margin-bottom:16px">✨ Generate a Real PR</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+      Describe what you want to build — Gemini will write the code, push it to GitHub, and MergeGuard will review it automatically.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <input
+        type="text"
+        id="generate-input"
+        placeholder="e.g. Add a function to validate Indian phone numbers"
+        style="flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;"
+        onkeydown="if(event.key==='Enter') generatePR()"
+      />
+      <button
+        id="generate-btn"
+        onclick="generatePR()"
+        style="background:rgba(0,212,255,0.15);color:var(--cyan);border:1px solid rgba(0,212,255,0.4);padding:10px 20px;border-radius:8px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s"
+      >
+        ⚡ Generate &amp; Send PR
+      </button>
+    </div>
+    <div id="generate-status" style="margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--muted);display:none"></div>
+  </div>
+
+  <div class="section-label">Choose a PR Scenario</div>
+
+  <div class="scenarios">
+
+    <!-- LOW RISK -->
+    <div class="scenario-card low" id="card-low">
+      <div class="scenario-risk">🟢 Low Risk</div>
+      <div class="scenario-title">Add string utility functions</div>
+      <div class="scenario-desc">Clean, well-documented utility code with no sensitive dependencies. Expected to sail through review.</div>
+      <div class="scenario-meta">
+        <div class="scenario-meta-item"><span class="key">Branch</span><span class="val">feature/string-helpers</span></div>
+        <div class="scenario-meta-item"><span class="key">Files</span><span class="val">1 new file</span></div>
+        <div class="scenario-meta-item"><span class="key">Author</span><span class="val">shaikasadahmed2k23</span></div>
+      </div>
+      <div class="scenario-expected">
+        <strong>Expected outcome:</strong>
+        High trust score (85+), blast radius LOW, auto-merged by agent.
+      </div>
+      <button class="send-btn" onclick="sendScenario('low')">▶ Send This PR</button>
+    </div>
+
+    <!-- MEDIUM RISK -->
+    <div class="scenario-card medium" id="card-medium">
+      <div class="scenario-risk">🟡 Medium Risk</div>
+      <div class="scenario-title">Incomplete database test file</div>
+      <div class="scenario-desc">A new file with only a comment inside — no actual implementation. Tests intent matching and code quality agents.</div>
+      <div class="scenario-meta">
+        <div class="scenario-meta-item"><span class="key">Branch</span><span class="val">feature/db-test</span></div>
+        <div class="scenario-meta-item"><span class="key">Files</span><span class="val">1 new file (empty)</span></div>
+        <div class="scenario-meta-item"><span class="key">Author</span><span class="val">shaikasadahmed2k23</span></div>
+      </div>
+      <div class="scenario-expected">
+        <strong>Expected outcome:</strong>
+        Low trust score (40–60), intent mismatch flagged, rejected by agent.
+      </div>
+      <button class="send-btn" onclick="sendScenario('medium')">▶ Send This PR</button>
+    </div>
+
+    <!-- HIGH RISK -->
+    <div class="scenario-card high" id="card-high">
+      <div class="scenario-risk">🔴 High Risk</div>
+      <div class="scenario-title">Authentication token configuration</div>
+      <div class="scenario-desc">Clean code that touches auth/token/session areas. Tests the blast radius safety gate — agent should escalate to human review regardless of score.</div>
+      <div class="scenario-meta">
+        <div class="scenario-meta-item"><span class="key">Branch</span><span class="val">feature/auth-config</span></div>
+        <div class="scenario-meta-item"><span class="key">Files</span><span class="val">1 new file</span></div>
+        <div class="scenario-meta-item"><span class="key">Author</span><span class="val">shaikasadahmed2k23</span></div>
+      </div>
+      <div class="scenario-expected">
+        <strong>Expected outcome:</strong>
+        High score (90+) but blast radius HIGH — agent routes to human review, does NOT auto-merge.
+      </div>
+      <button class="send-btn" onclick="sendScenario('high')">▶ Send This PR</button>
+    </div>
+
+  </div>
+
+  <!-- TERMINAL -->
+  <div class="section-label">Agent Activity Log</div>
+  <div class="terminal-wrapper">
+    <div class="terminal-header">
+      <div class="terminal-dot red"></div>
+      <div class="terminal-dot amber"></div>
+      <div class="terminal-dot green"></div>
+      <div class="terminal-title">mergeguard — pipeline log</div>
+      <div class="terminal-status">
+        <div class="dot"></div>
+        <span style="color:var(--green);font-family:var(--mono);font-size:10px">agent active</span>
+      </div>
+    </div>
+    <div id="terminal-body"></div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result-section">
+    <div class="section-label">Agent Decision</div>
+    <div class="result-card" id="result-card">
+      <div class="result-header">
+        <div>
+          <div class="result-decision" id="result-decision">—</div>
+          <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:6px" id="result-subtitle">—</div>
+        </div>
+        <div class="result-score-ring" id="result-ring"></div>
+      </div>
+      <div class="result-agents" id="result-agents"></div>
+      <div class="result-footer">
+        <div class="result-footer-text" id="result-footer-text">Powered by MergeGuard</div>
+        <a class="result-github-link" id="result-github-link" href="#" target="_blank" rel="noopener noreferrer">↗ View Real PR on GitHub</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="how-section">
+    <div class="section-label">How It Works</div>
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="how-step-num">01 — WEBHOOK</div>
+        <div class="how-step-title">PR Event Received</div>
+        <div class="how-step-desc">GitHub fires a signed webhook. MergeGuard verifies the HMAC signature and fetches the full diff.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">02 — CLASSIFY</div>
+        <div class="how-step-title">Blast Radius Check</div>
+        <div class="how-step-desc">A deterministic classifier scans for risk signals before any LLM call. High-risk areas are never auto-merged, regardless of score.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">03 — ANALYZE</div>
+        <div class="how-step-title">5 Agents in Parallel</div>
+        <div class="how-step-desc">Security, Intent, Diff, Impact, and Context agents run simultaneously via Google ADK + Gemini 2.5 Flash.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">04 — DECIDE</div>
+        <div class="how-step-title">Autonomous Decision</div>
+        <div class="how-step-desc">Weighted trust score is calculated. Agent merges, rejects, or escalates — and explains every factor in the PR comment.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+
+let running = false;
+
+function scoreColor(s) {
+  if (s >= 85) return 'var(--green)';
+  if (s >= 60) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function scoreRingSVG(score, size, stroke, color) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const fill = (score / 100) * circ;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${stroke}"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+      stroke-dasharray="${fill} ${circ}" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function addLog(text, type = 'dim') {
+  const terminal = document.getElementById('terminal-body');
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+  const line = document.createElement('span');
+  line.className = `log-line log-${type}`;
+  line.textContent = `${now} | ${text}`;
+  terminal.appendChild(line);
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+function clearTerminal() {
+  document.getElementById('terminal-body').innerHTML = '';
+  document.getElementById('result-section').style.display = 'none';
+}
+
+function showResult(data) {
+  const score = data.score;
+  const color = scoreColor(score);
+
+  let decisionText, decisionEmoji;
+  if (data.decision === 'approved') {
+    decisionText = 'APPROVED & MERGED';
+    decisionEmoji = '✅';
+  } else if (data.decision === 'rejected') {
+    decisionText = 'REJECTED';
+    decisionEmoji = '❌';
+  } else {
+    decisionText = 'HUMAN REVIEW REQUIRED';
+    decisionEmoji = '🚩';
+  }
+
+  document.getElementById('result-decision').innerHTML =
+    `<span style="color:${color}">${decisionEmoji} ${decisionText}</span>`;
+
+  document.getElementById('result-subtitle').textContent =
+    `Trust Score: ${score}/100 · Blast Radius: ${data.blast_radius.toUpperCase()} · Developer: ${data.trust_level.toUpperCase()}`;
+
+  document.getElementById('result-ring').innerHTML = `
+    ${scoreRingSVG(score, 64, 5, color)}
+    <div class="result-score-ring-text">
+      <span class="big" style="color:${color}">${score}</span>
+      <span class="small">/ 100</span>
+    </div>`;
+
+  const agentNames = {
+    security: 'Security', intent: 'Intent',
+    diff: 'Diff', impact: 'Impact', context: 'Context'
+  };
+
+  document.getElementById('result-agents').innerHTML =
+    Object.entries(data.results || {}).map(([k, v]) => {
+      const s = v.score || 0;
+      const c = scoreColor(s);
+      return `<div class="result-agent">
+        <div class="result-agent-name">${agentNames[k] || k} Agent</div>
+        <div class="result-agent-score" style="color:${c}">${s}/100</div>
+        <div class="result-agent-bar">
+          <div class="result-agent-bar-fill" style="width:${s}%;background:${c}"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+  document.getElementById('result-footer-text').textContent =
+    'Analyzed by MergeGuard — Google ADK + Gemini 2.5 Flash';
+
+  const ghLink = document.getElementById('result-github-link');
+  ghLink.href = data.pr_url || '#';
+  ghLink.textContent = '↗ View Real PR on GitHub →';
+
+  const section = document.getElementById('result-section');
+  section.style.display = 'block';
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function generatePR() {
+  const input = document.getElementById('generate-input');
+  const btn = document.getElementById('generate-btn');
+  const status = document.getElementById('generate-status');
+  const prompt = input.value.trim();
+
+  if (!prompt) {
+    status.style.display = 'block';
+    status.style.color = 'var(--red)';
+    status.textContent = '⚠️ Please describe what you want to build';
+    return;
+  }
+
+  if (running) return;
+  running = true;
+
+  btn.disabled = true;
+  btn.textContent = '⠋ Generating...';
+  document.querySelectorAll('.send-btn').forEach(b => b.disabled = true);
+  status.style.display = 'block';
+  status.style.color = 'var(--cyan)';
+  status.textContent = '🤖 Gemini is writing your code...';
+
+  try {
+    const resp = await fetch(`${API}/api/demo/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    });
+
+    const data = await resp.json();
+
+    if (data.success) {
+      status.style.color = 'var(--green)';
+      status.textContent = `✅ PR #${data.pr_number} created! Streaming live pipeline now...`;
+      input.value = '';
+
+      running = true;
+      document.querySelectorAll('.send-btn').forEach(b => {
+        b.disabled = true;
+        b.textContent = '⠋ Running...';
+      });
+
+      clearTerminal();
+      addLog(`PR #${data.pr_number} created — "${prompt}"`, 'success');
+      addLog(`Branch: ${data.branch}`, 'dim');
+      addLog(`File: ${data.filename}`, 'dim');
+      addLog('MergeGuard pipeline starting...', 'info');
+
+      addLog('', 'dim');
+      addLog(`─── Generated Code: ${data.filename} ───`, 'info');
+      const codeLines = (data.generated_code || '').split('\n');
+      codeLines.forEach(line => {
+        addLog(`  ${line}`, 'agent');
+      });
+      addLog('─── End of Generated Code ───', 'info');
+      addLog('', 'dim');
+
+      const evtSource = new EventSource(`${API}/api/demo/stream?pr_number=${data.pr_number}`);
+
+      evtSource.onmessage = (e) => {
+        const eventData = JSON.parse(e.data);
+
+        if (eventData.type === 'result') {
+          evtSource.close();
+          addLog('─────────────────────────────────────────', 'dim');
+          addLog('Pipeline complete.', 'success');
+          const result = JSON.parse(eventData.message);
+          showResult(result);
+          document.querySelectorAll('.send-btn').forEach(b => {
+            b.disabled = false;
+            b.textContent = '▶ Send This PR';
+          });
+          running = false;
+        } else {
+          const typeMap = {
+            info: 'info', success: 'success',
+            warn: 'warn', error: 'error',
+            agent: 'agent', dim: 'dim'
+          };
+          addLog(eventData.message, typeMap[eventData.type] || 'dim');
+        }
+      };
+
+      evtSource.onerror = () => {
+        evtSource.close();
+        addLog('Stream ended.', 'dim');
+        document.querySelectorAll('.send-btn').forEach(b => {
+          b.disabled = false;
+          b.textContent = '▶ Send This PR';
+        });
+        running = false;
+      };
+
+      const ghLink = document.getElementById('result-github-link');
+      ghLink.href = data.pr_url;
+      ghLink.textContent = `↗ View PR #${data.pr_number} on GitHub →`;
+      document.getElementById('result-section').style.display = 'block';
+      document.querySelector('.terminal-wrapper').scrollIntoView({ behavior: 'smooth' });
+    } else {
+      status.style.color = 'var(--red)';
+      status.textContent = `❌ Error: ${data.error || 'Something went wrong'}`;
+    }
+  } catch (e) {
+    status.style.color = 'var(--red)';
+    status.textContent = '❌ Backend not reachable — is the server running?';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '⚡ Generate & Send PR';
+  document.querySelectorAll('.send-btn').forEach(b => b.disabled = false);
+  running = false;
+}
+
+async function sendScenario(type) {
+  if (running) return;
+  running = true;
+
+  document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById(`card-${type}`).classList.add('selected');
+
+  document.querySelectorAll('.send-btn').forEach(b => {
+    b.disabled = true;
+    b.textContent = '⠋ Running...';
+  });
+
+  clearTerminal();
+  addLog('Connecting to MergeGuard pipeline...', 'info');
+
+  const evtSource = new EventSource(`${API}/api/demo/stream?type=${type}`);
+
+  evtSource.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+
+    if (data.type === 'result') {
+      evtSource.close();
+      addLog('─────────────────────────────────────────', 'dim');
+      addLog('Pipeline complete.', 'success');
+
+      const result = JSON.parse(data.message);
+      showResult(result);
+
+      document.querySelectorAll('.send-btn').forEach(b => {
+        b.disabled = false;
+        b.textContent = '▶ Send This PR';
+      });
+      running = false;
+
+    } else {
+      const typeMap = {
+        info: 'info', success: 'success',
+        warn: 'warn', error: 'error',
+        agent: 'agent', dim: 'dim'
+      };
+      addLog(data.message, typeMap[data.type] || 'dim');
+    }
+  };
+
+  evtSource.onerror = () => {
+    evtSource.close();
+    addLog('Connection error — is the backend running on port 8000?', 'error');
+    addLog('Run: uvicorn main:app --reload', 'dim');
+    document.querySelectorAll('.send-btn').forEach(b => {
+      b.disabled = false;
+      b.textContent = '▶ Send This PR';
+    });
+    running = false;
+  };
+}
+</script>
+</body>
+</html>
