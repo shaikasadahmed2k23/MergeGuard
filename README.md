@@ -30,6 +30,25 @@ It was built to answer one question honestly: **when can we actually trust an AI
 
 ---
 
+<h2 align="center">📸 Project Preview</h2>
+
+<p align="center">
+  <img src="Webpage.png" alt="Webpage" width="90%">
+</p>
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="Folder_Structure.png" alt="Folder Structure" width="100%">
+    </td>
+    <td align="center">
+      <img src="DemoPage.png" alt="Demo Page" width="100%">
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Table of Contents
 
 1. [The Problem](#the-problem)
