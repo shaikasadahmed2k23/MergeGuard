@@ -15,7 +15,7 @@ async def test_make_decision_requires_human_review_for_high_blast_radius(monkeyp
     async def fake_post_comment(repo, pr_number, comment):
         captured["comment"] = comment
 
-    async def fake_save_pr_review(pr_data, score, results, review_state):
+    async def fake_save_pr_review(pr_data, score, results, review_state, blast_radius, trust_profile):
         captured["review_state"] = review_state
 
     async def fake_merge_pr(repo, pr_number, message):

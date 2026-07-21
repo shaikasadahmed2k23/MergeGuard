@@ -1,8 +1,22 @@
 import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from config import DISCORD_WEBHOOK_URL
 from logs.logger import get_logger
 
 logger = get_logger("discord")
+
+_retry_on_network_error = retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.ReadError)),
+    reraise=True,
+)
+
+
+@_retry_on_network_error
+async def _post_to_discord(payload: dict) -> httpx.Response:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        return await client.post(DISCORD_WEBHOOK_URL, json=payload)
 
 
 async def send_discord_notification(pr_data: dict, score: int, decision: str, blast_radius: dict, trust_profile: dict):
@@ -59,11 +73,10 @@ async def send_discord_notification(pr_data: dict, score: int, decision: str, bl
     }
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(DISCORD_WEBHOOK_URL, json=payload)
-            if response.status_code in (200, 204):
-                logger.info(f"Discord notification sent for PR #{pr_number} ✅")
-            else:
-                logger.error(f"Discord notification failed: {response.status_code} - {response.text}")
+        response = await _post_to_discord(payload)
+        if response.status_code in (200, 204):
+            logger.info(f"Discord notification sent for PR #{pr_number} ✅")
+        else:
+            logger.error(f"Discord notification failed: {response.status_code} - {response.text}")
     except Exception as e:
-        logger.error(f"Discord notification error: {e}")
+        logger.error(f"Discord notification error after retries: {e}")

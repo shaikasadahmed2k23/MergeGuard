@@ -24,7 +24,7 @@ router = APIRouter()
 
 def slugify(text: str) -> str:
     text = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
-    return text[:40] or "generated"
+    return text[:60].rstrip("-") or "generated"
 
 
 def build_generated_filename(prompt: str) -> str:
