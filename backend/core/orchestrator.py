@@ -2,6 +2,7 @@ from mergeguard_agent.runner_service import analyze_pr as adk_analyze_pr
 from core.decision import make_decision
 from core.blast_radius import calculate_blast_radius
 from core.trust_profile import get_developer_trust
+from core.file_context import build_file_context
 from github.api import get_pr_diff
 from logs.logger import get_logger
 
@@ -20,6 +21,10 @@ async def run_pipeline(pr_data: dict):
         logger.error("Could not fetch diff — pipeline aborted")
         return
 
+    # Step 1b: Diff ke saath full file content bhi fetch karo — agents ko
+    # sirf changed lines nahi, poora relevant file dikhna chahiye
+    code_context = await build_file_context(repo, pr_number, pr_data["head_branch"], diff)
+
     # Step 2: Blast Radius calculate karo
     blast_radius = calculate_blast_radius(diff, pr_data)
 
@@ -28,7 +33,7 @@ async def run_pipeline(pr_data: dict):
 
     # Step 4: ADK pipeline chalao
     logger.info("Running ADK multi-agent analysis...")
-    adk_result = await adk_analyze_pr(pr_data, diff)
+    adk_result = await adk_analyze_pr(pr_data, code_context)
 
     all_results = adk_result["results"]
     raw_score = adk_result["trust_score"]

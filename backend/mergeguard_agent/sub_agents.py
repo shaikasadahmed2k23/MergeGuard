@@ -38,7 +38,7 @@ Scoring guide:
 - Medium warnings -> score 56-75
 - Minor or no issues -> score 76-100
 
-You will receive the PR title, author, and code diff. Analyze it carefully and respond with structured output.""",
+You will receive the PR title, author, the code diff, and the full content of the changed files (when available). The diff shows what changed; the full file content lets you check whether the vulnerability is actually reachable/exploitable in context, not just visible in the patch lines. Analyze it carefully and respond with structured output.""",
     output_schema=SecurityAnalysis,
     output_key="security_result",
 )
@@ -65,7 +65,7 @@ intent_agent = Agent(
     description="Analyzes whether the PR's stated intent matches its actual code implementation",
     instruction="""You are an expert code reviewer analyzing whether a pull request's stated intent matches its actual implementation.
 
-You will receive: PR Title, PR Description, and the code diff.
+You will receive: PR Title, PR Description, the code diff, and the full content of the changed files (when available) — use the full file to check whether the described intent is actually implemented correctly, not just what the diff lines show in isolation.
 
 Your job:
 1. Understand what the developer SAID they did (from title + description)
@@ -110,7 +110,7 @@ diff_agent = Agent(
     description="Analyzes code diff for bugs and code quality",
     instruction="""You are an expert code reviewer. Analyze the given code diff carefully for bugs, logical errors, and code quality.
 
-You will receive: PR Title, PR Description, and the code diff.
+You will receive: PR Title, PR Description, the code diff, and the full content of the changed files (when available) — a bug can depend on code just outside the diff hunk, so use the full file when it's provided.
 
 Check for:
 - Logical errors or bugs
@@ -153,7 +153,7 @@ impact_agent = Agent(
     description="Analyzes the potential impact and side effects of a code change",
     instruction="""You are a senior backend engineer analyzing the potential impact and side effects of a code change.
 
-You will receive: PR Title, PR Description, Base Branch, and the code diff.
+You will receive: PR Title, PR Description, Base Branch, the code diff, and the full content of the changed files (when available) — use it to check whether something deleted or changed is still referenced elsewhere in that same file.
 
 Carefully analyze for:
 1. Breaking changes - function/method signatures changed, API contracts broken
@@ -195,7 +195,7 @@ context_agent = Agent(
     description="Reviews the PR for code consistency, project fit, and structure",
     instruction="""You are a senior software architect reviewing a pull request for code consistency and project fit.
 
-You will receive: PR Title, PR Description, Branch names, Repository name, and the code diff.
+You will receive: PR Title, PR Description, Branch names, Repository name, the code diff, and the full content of the changed files (when available) — use it to judge style consistency across the whole file, not just the changed lines.
 
 Analyze:
 1. Branch naming - is it meaningful and follows conventions (feature/, fix/, hotfix/, test/, etc.)?

@@ -7,6 +7,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+# NOTE: backend/agents/*.py (Groq-based) is currently NOT used by the live
+# pipeline — core/orchestrator.py calls mergeguard_agent/ (Google ADK +
+# Gemini) instead. These tests still cover real, working code, but if
+# agents/*.py is intentionally kept as a fallback/reference implementation,
+# say so in the README; otherwise it's worth removing to avoid confusing
+# reviewers about which pipeline is actually live.
 import agents.diff_agent as diff_agent
 import agents.security_agent as security_agent
 import agents.intent_agent as intent_agent

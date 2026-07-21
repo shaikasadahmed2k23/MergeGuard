@@ -78,3 +78,45 @@ async def close_pr(repo: str, pr_number: int) -> bool:
             return True
         logger.error(f"Failed to close PR: {response.status_code}")
         return False
+
+
+@_retry_on_network_error
+async def get_pr_files(repo: str, pr_number: int) -> list:
+    """
+    PR mein kaunsi files change hui — filename, status (added/modified/removed),
+    aur per-file patch. Diff se zyada structured — file-by-file context banane
+    ke liye use hota hai.
+    """
+    url = f"{BASE_URL}/repos/{repo}/pulls/{pr_number}/files"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get(url, headers=HEADERS, params={"per_page": 100})
+        if response.status_code == 200:
+            return response.json()
+        logger.error(f"Failed to fetch PR files: {response.status_code}")
+        return []
+
+
+@_retry_on_network_error
+async def get_file_content(repo: str, path: str, ref: str) -> str:
+    """
+    Ek file ka poora content laao (PR ke head branch pe), sirf diff nahi.
+    Agar file bahut badi hai, binary hai, ya mil hi nahi rahi — empty string do,
+    caller isko gracefully skip kar dega.
+    """
+    import base64
+
+    url = f"{BASE_URL}/repos/{repo}/contents/{path}"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get(url, headers=HEADERS, params={"ref": ref})
+        if response.status_code != 200:
+            logger.warning(f"Could not fetch content for {path}@{ref}: {response.status_code}")
+            return ""
+
+        data = response.json()
+        if data.get("encoding") == "base64" and "content" in data:
+            try:
+                return base64.b64decode(data["content"]).decode("utf-8", errors="replace")
+            except Exception as e:
+                logger.warning(f"Could not decode {path}: {e}")
+                return ""
+        return ""

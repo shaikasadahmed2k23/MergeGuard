@@ -8,10 +8,10 @@ from .scorer import calculate_trust_score
 runner = InMemoryRunner(agent=root_agent, app_name="mergeguard")
 
 
-async def analyze_pr(pr_data: dict, diff: str) -> dict:
+async def analyze_pr(pr_data: dict, code_context: str) -> dict:
     """
-    PR data + diff lo, ADK pipeline chalao,
-    5 agents ke results nikaalo, trust score calculate karo
+    PR data + code context (diff + full changed-file content) lo,
+    ADK pipeline chalao, 5 agents ke results nikaalo, trust score calculate karo
     """
     # ADK ko ek hi message mein context dena hai
     message_text = f"""PR Title: {pr_data['title']}
@@ -21,8 +21,7 @@ Repository: {pr_data['repo']}
 Base Branch: {pr_data['base_branch']}
 Head Branch: {pr_data['head_branch']}
 
-Diff:
-{diff[:4000]}"""
+{code_context}"""
 
     user_id = "mergeguard_system"
     session_id = f"pr_{pr_data['repo'].replace('/', '_')}_{pr_data['pr_number']}_{int(time.time())}"
