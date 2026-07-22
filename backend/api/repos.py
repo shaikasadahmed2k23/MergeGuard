@@ -49,8 +49,8 @@ async def onboard_repo(body: OnboardRepoRequest, user_id: str = Depends(get_curr
     if not webhook_result["success"]:
         raise HTTPException(
             status_code=400,
-            detail=f"Could not create webhook on {body.repo_full_name}. "
-                    f"Make sure you're an admin on that repo. ({webhook_result.get('status_code')})",
+            detail=f"Could not create webhook on {body.repo_full_name} "
+                    f"(GitHub returned {webhook_result.get('status_code')}): {webhook_result.get('error')}",
         )
 
     api_key_encrypted = encrypt(body.gemini_api_key) if body.gemini_api_key else None
