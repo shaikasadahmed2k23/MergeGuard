@@ -133,15 +133,23 @@ async def get_user_by_id(user_id: str) -> dict:
 
 async def create_repo_config(user_id: str, repo_full_name: str, discord_webhook_url: str = None,
                               api_key_encrypted: str = None, github_webhook_id: int = None) -> dict:
-    """Naya repo onboard karo — trial ya BYOK, dono ke liye same table"""
+    """
+    Repo onboard karo — trial ya BYOK, dono ke liye same table.
+    Upsert on repo_full_name: agar pehli baar partial fail hua tha (jaise
+    webhook ban gaya but config save nahi hua), retry pe error nahi ayega —
+    seedha update ho jayega.
+    """
     try:
-        result = supabase.table("repo_configs").insert({
-            "user_id": user_id,
-            "repo_full_name": repo_full_name,
-            "discord_webhook_url": discord_webhook_url,
-            "api_key_encrypted": api_key_encrypted,
-            "github_webhook_id": github_webhook_id,
-        }).execute()
+        result = supabase.table("repo_configs").upsert(
+            {
+                "user_id": user_id,
+                "repo_full_name": repo_full_name,
+                "discord_webhook_url": discord_webhook_url,
+                "api_key_encrypted": api_key_encrypted,
+                "github_webhook_id": github_webhook_id,
+            },
+            on_conflict="repo_full_name",
+        ).execute()
         return result.data[0] if result.data else None
     except Exception as e:
         logger.error(f"create_repo_config failed: {e}")

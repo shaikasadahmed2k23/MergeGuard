@@ -151,5 +151,19 @@ async def create_repo_webhook(user_access_token: str, repo: str, callback_url: s
             data = response.json()
             logger.info(f"Webhook created on {repo} (id: {data.get('id')}) ✅")
             return {"success": True, "webhook_id": data.get("id")}
+
+        if response.status_code == 422 and "already exists" in response.text.lower():
+            # Onboarding retried after a partial failure (e.g. config save
+            # failed after the webhook was created) — find the existing hook
+            # instead of treating this as a hard failure.
+            existing = await client.get(url, headers=headers)
+            if existing.status_code == 200:
+                for hook in existing.json():
+                    if hook.get("config", {}).get("url") == callback_url:
+                        logger.info(f"Reusing existing webhook on {repo} (id: {hook['id']}) ✅")
+                        return {"success": True, "webhook_id": hook["id"]}
+            logger.error(f"Webhook already exists on {repo} but couldn't find/match it: {response.text}")
+            return {"success": False, "error": response.text, "status_code": response.status_code}
+
         logger.error(f"Failed to create webhook on {repo}: {response.status_code} - {response.text}")
         return {"success": False, "error": response.text, "status_code": response.status_code}
