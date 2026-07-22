@@ -33,7 +33,6 @@ jobs:
       - name: Run tests
         working-directory: backend
         env:
-          GROQ_API_KEY: dummy
           GITHUB_TOKEN: dummy
           GITHUB_WEBHOOK_SECRET: testsecret
           SUPABASE_URL: https://dummy.supabase.co

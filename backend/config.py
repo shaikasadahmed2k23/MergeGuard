@@ -13,9 +13,6 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_OAUTH_CLIENT_ID = os.getenv("GITHUB_OAUTH_CLIENT_ID")
 GITHUB_OAUTH_CLIENT_SECRET = os.getenv("GITHUB_OAUTH_CLIENT_SECRET")
 
-# Groq (legacy — unused by the live pipeline, kept for backend/agents/*.py)
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
 # Gemini — the live pipeline's default/trial key. Per-user BYOK keys are
 # stored encrypted per repo_config and used instead of this when present.
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
