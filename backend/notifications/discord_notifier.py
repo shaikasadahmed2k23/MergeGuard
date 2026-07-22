@@ -14,17 +14,22 @@ _retry_on_network_error = retry(
 
 
 @_retry_on_network_error
-async def _post_to_discord(payload: dict) -> httpx.Response:
+async def _post_to_discord(payload: dict, webhook_url: str) -> httpx.Response:
     async with httpx.AsyncClient(timeout=10.0) as client:
-        return await client.post(DISCORD_WEBHOOK_URL, json=payload)
+        return await client.post(webhook_url, json=payload)
 
 
-async def send_discord_notification(pr_data: dict, score: int, decision: str, blast_radius: dict, trust_profile: dict):
+async def send_discord_notification(pr_data: dict, score: int, decision: str, blast_radius: dict,
+                                     trust_profile: dict, webhook_url_override: str = None):
     """
     Har PR decision ke baad Discord channel mein message bhejta hai.
     Important PRs (human_review, reject) zyada highlighted hote hain.
+
+    webhook_url_override: multi-tenant repo apna khud ka Discord channel use
+    kar sakta hai — nahi diya toh purana global DISCORD_WEBHOOK_URL use hota hai.
     """
-    if not DISCORD_WEBHOOK_URL:
+    webhook_url = webhook_url_override or DISCORD_WEBHOOK_URL
+    if not webhook_url:
         logger.warning("Discord webhook URL not configured — skipping notification")
         return
 
@@ -73,7 +78,7 @@ async def send_discord_notification(pr_data: dict, score: int, decision: str, bl
     }
 
     try:
-        response = await _post_to_discord(payload)
+        response = await _post_to_discord(payload, webhook_url)
         if response.status_code in (200, 204):
             logger.info(f"Discord notification sent for PR #{pr_number} ✅")
         else:

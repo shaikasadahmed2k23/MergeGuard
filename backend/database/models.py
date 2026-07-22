@@ -96,3 +96,89 @@ async def get_stats(repo: str = None):
     except Exception as e:
         logger.error(f"Stats fetch failed: {e}")
         return {}
+
+# ============================================
+# MULTI-TENANT: users + repo_configs
+# ============================================
+
+async def upsert_user(github_id: int, github_username: str, access_token_encrypted: str) -> dict:
+    """
+    GitHub OAuth login ke baad user record banao ya update karo.
+    Har login pe access token refresh ho jaata hai.
+    """
+    try:
+        result = supabase.table("users").upsert(
+            {
+                "github_id": github_id,
+                "github_username": github_username,
+                "github_access_token_encrypted": access_token_encrypted,
+            },
+            on_conflict="github_id",
+        ).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        logger.error(f"upsert_user failed: {e}")
+        return None
+
+
+async def get_user_by_id(user_id: str) -> dict:
+    """User record by internal UUID"""
+    try:
+        result = supabase.table("users").select("*").eq("id", user_id).limit(1).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        logger.error(f"get_user_by_id failed: {e}")
+        return None
+
+
+async def create_repo_config(user_id: str, repo_full_name: str, discord_webhook_url: str = None,
+                              api_key_encrypted: str = None, github_webhook_id: int = None) -> dict:
+    """Naya repo onboard karo — trial ya BYOK, dono ke liye same table"""
+    try:
+        result = supabase.table("repo_configs").insert({
+            "user_id": user_id,
+            "repo_full_name": repo_full_name,
+            "discord_webhook_url": discord_webhook_url,
+            "api_key_encrypted": api_key_encrypted,
+            "github_webhook_id": github_webhook_id,
+        }).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        logger.error(f"create_repo_config failed: {e}")
+        return None
+
+
+async def get_repo_config(repo_full_name: str) -> dict:
+    """
+    Webhook aane par ye lookup hota hai — is repo ke liye koi multi-tenant
+    config configured hai? Nahi mile toh caller purane single-tenant env
+    vars pe fallback karega (backward-compatible, existing demo repo safe rehta hai).
+    """
+    try:
+        result = supabase.table("repo_configs").select("*").eq("repo_full_name", repo_full_name).limit(1).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        logger.error(f"get_repo_config failed: {e}")
+        return None
+
+
+async def list_user_repo_configs(user_id: str) -> list:
+    """Dashboard ke liye — is user ne kaunse repos onboard kiye hain"""
+    try:
+        result = supabase.table("repo_configs").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+        return result.data
+    except Exception as e:
+        logger.error(f"list_user_repo_configs failed: {e}")
+        return []
+
+
+async def increment_trial_usage(repo_full_name: str) -> None:
+    """Trial pool use hone par counter badhao"""
+    try:
+        config = await get_repo_config(repo_full_name)
+        if config:
+            supabase.table("repo_configs").update(
+                {"trial_requests_used": config.get("trial_requests_used", 0) + 1}
+            ).eq("repo_full_name", repo_full_name).execute()
+    except Exception as e:
+        logger.error(f"increment_trial_usage failed: {e}")

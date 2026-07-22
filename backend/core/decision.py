@@ -77,7 +77,8 @@ def build_comment(pr_data: dict, score: int, results: dict, decision: str, blast
 **PR:** #{pr_number}"""
 
 
-async def make_decision(pr_data: dict, score: int, results: dict, blast_radius: dict, trust_profile: dict):
+async def make_decision(pr_data: dict, score: int, results: dict, blast_radius: dict, trust_profile: dict,
+                         discord_webhook_override: str = None):
     """
     Score + Blast Radius dono ke basis pe decision.
 
@@ -93,7 +94,7 @@ async def make_decision(pr_data: dict, score: int, results: dict, blast_radius: 
         logger.warning(f"PR #{pr_number} → FORCE REJECTED due to critical security issue!")
         comment = build_comment(pr_data, score, results, "reject", blast_radius, trust_profile)
         await save_pr_review(pr_data, score, results, "rejected", blast_radius, trust_profile)
-        await send_discord_notification(pr_data, score, "rejected", blast_radius, trust_profile)
+        await send_discord_notification(pr_data, score, "rejected", blast_radius, trust_profile, discord_webhook_override)
         await post_comment(repo, pr_number, comment)
         await close_pr(repo, pr_number)
         return
@@ -102,7 +103,7 @@ async def make_decision(pr_data: dict, score: int, results: dict, blast_radius: 
         logger.warning(f"PR #{pr_number} → HUMAN REVIEW REQUIRED (high blast radius, score was {score})")
         comment = build_comment(pr_data, score, results, "human_review", blast_radius, trust_profile)
         await save_pr_review(pr_data, score, results, "warned", blast_radius, trust_profile)
-        await send_discord_notification(pr_data, score, "human_review", blast_radius, trust_profile)
+        await send_discord_notification(pr_data, score, "human_review", blast_radius, trust_profile, discord_webhook_override)
         await post_comment(repo, pr_number, comment)
         return
 
@@ -110,7 +111,7 @@ async def make_decision(pr_data: dict, score: int, results: dict, blast_radius: 
         logger.info(f"PR #{pr_number} → AUTO MERGE ✅ (Score: {score})")
         comment = build_comment(pr_data, score, results, "approve", blast_radius, trust_profile)
         await save_pr_review(pr_data, score, results, "approved", blast_radius, trust_profile)
-        await send_discord_notification(pr_data, score, "approved", blast_radius, trust_profile)
+        await send_discord_notification(pr_data, score, "approved", blast_radius, trust_profile, discord_webhook_override)
         await post_comment(repo, pr_number, comment)
         await merge_pr(repo, pr_number, f"MergeGuard Auto-Merge — Trust Score: {score}/100")
 
@@ -118,7 +119,7 @@ async def make_decision(pr_data: dict, score: int, results: dict, blast_radius: 
         logger.info(f"PR #{pr_number} → MERGED WITH WARNING 🚩 (Score: {score})")
         comment = build_comment(pr_data, score, results, "warn", blast_radius, trust_profile)
         await save_pr_review(pr_data, score, results, "warned", blast_radius, trust_profile)
-        await send_discord_notification(pr_data, score, "warned", blast_radius, trust_profile)
+        await send_discord_notification(pr_data, score, "warned", blast_radius, trust_profile, discord_webhook_override)
         await post_comment(repo, pr_number, comment)
         await merge_pr(repo, pr_number, f"MergeGuard Merge (with warnings) — Trust Score: {score}/100")
 
@@ -126,6 +127,6 @@ async def make_decision(pr_data: dict, score: int, results: dict, blast_radius: 
         logger.info(f"PR #{pr_number} → REJECTED ❌ (Score: {score})")
         comment = build_comment(pr_data, score, results, "reject", blast_radius, trust_profile)
         await save_pr_review(pr_data, score, results, "rejected", blast_radius, trust_profile)
-        await send_discord_notification(pr_data, score, "rejected", blast_radius, trust_profile)
+        await send_discord_notification(pr_data, score, "rejected", blast_radius, trust_profile, discord_webhook_override)
         await post_comment(repo, pr_number, comment)
         await close_pr(repo, pr_number)

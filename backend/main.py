@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from webhook.github import router as webhook_router
 from logs.logger import get_logger
 from api.demo import router as demo_router
+from api.repos import router as repos_router
+from auth.github_oauth import router as auth_router
+from config import FRONTEND_URL
 
 logger = get_logger("main")
 
@@ -13,11 +16,14 @@ app = FastAPI(
 )
 
 app.include_router(demo_router, prefix="/api", tags=["Demo"])
+app.include_router(repos_router, prefix="/api", tags=["Repos"])
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
-# CORS - Frontend se baat karne ke liye
+# CORS — now that login exists, we scope this to the actual frontend origin(s)
+# instead of "*". Local dev ports included so the frontend works during development.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[FRONTEND_URL, "http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

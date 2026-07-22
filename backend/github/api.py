@@ -120,3 +120,36 @@ async def get_file_content(repo: str, path: str, ref: str) -> str:
                 logger.warning(f"Could not decode {path}: {e}")
                 return ""
         return ""
+
+
+@_retry_on_network_error
+async def create_repo_webhook(user_access_token: str, repo: str, callback_url: str, webhook_secret: str) -> dict:
+    """
+    Multi-tenant onboarding: is repo pe webhook banao — user ke apne OAuth
+    token se (global GITHUB_TOKEN se nahi), taaki ye unke access ke saath
+    unke repo pe ho, humare service account ke bharose nahi.
+    """
+    url = f"{BASE_URL}/repos/{repo}/hooks"
+    headers = {
+        "Authorization": f"Bearer {user_access_token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    payload = {
+        "name": "web",
+        "active": True,
+        "events": ["pull_request"],
+        "config": {
+            "url": callback_url,
+            "content_type": "json",
+            "secret": webhook_secret,
+        },
+    }
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.post(url, headers=headers, json=payload)
+        if response.status_code == 201:
+            data = response.json()
+            logger.info(f"Webhook created on {repo} (id: {data.get('id')}) ✅")
+            return {"success": True, "webhook_id": data.get("id")}
+        logger.error(f"Failed to create webhook on {repo}: {response.status_code} - {response.text}")
+        return {"success": False, "error": response.text, "status_code": response.status_code}
