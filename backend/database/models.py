@@ -107,7 +107,7 @@ async def upsert_user(github_id: int, github_username: str, access_token_encrypt
     Har login pe access token refresh ho jaata hai.
     """
     try:
-        result = supabase.table("users").upsert(
+        result = supabase.table("mergeguard_users").upsert(
             {
                 "github_id": github_id,
                 "github_username": github_username,
@@ -124,7 +124,7 @@ async def upsert_user(github_id: int, github_username: str, access_token_encrypt
 async def get_user_by_id(user_id: str) -> dict:
     """User record by internal UUID"""
     try:
-        result = supabase.table("users").select("*").eq("id", user_id).limit(1).execute()
+        result = supabase.table("mergeguard_users").select("*").eq("id", user_id).limit(1).execute()
         return result.data[0] if result.data else None
     except Exception as e:
         logger.error(f"get_user_by_id failed: {e}")
